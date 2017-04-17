@@ -156,6 +156,15 @@ def run(services, config, backdoor_port=None):
 
 
 def main(args):
+    from watchdog.observers.polling import PollingObserver as Observer
+    from watchdog.events import LoggingEventHandler
+
+    observer = Observer()
+    event_handler = LoggingEventHandler()
+    observer.schedule(event_handler, '.', recursive=True)
+    observer.daemon = True
+    observer.start()
+
     if '.' not in sys.path:
         sys.path.insert(0, '.')
 
