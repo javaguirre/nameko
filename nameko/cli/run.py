@@ -155,7 +155,7 @@ def run(services, config, backdoor_port=None):
             break
 
 
-def main(args):
+def get_observer():
     from watchdog.observers.polling import PollingObserver as Observer
     from watchdog.events import LoggingEventHandler
 
@@ -165,6 +165,8 @@ def main(args):
     observer.daemon = True
     observer.start()
 
+
+def main(args):
     if '.' not in sys.path:
         sys.path.insert(0, '.')
 
@@ -180,6 +182,9 @@ def main(args):
         logging.config.dictConfig(config['LOGGING'])
     else:
         logging.basicConfig(level=logging.INFO, format='%(message)s')
+
+    get_observer()
+    logging.info('OBSERVER!')
 
     services = []
     for path in args.services:
