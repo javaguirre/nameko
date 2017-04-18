@@ -25,6 +25,28 @@ logger = logging.getLogger(__name__)
 
 MISSING_MODULE_TEMPLATE = "^No module named '?{}'?$"
 
+from watchdog.events import FileSystemEventHandler
+class MyHandler(FileSystemEventHandler):
+    def __init__(self, service_runner, services, config, backdoor_port, *args, **kwargs):
+        self.runner = service_runner
+        self.services = services
+        self.config = config
+        self.backdoor_port = backdoor_port
+        super().__init__(*args, **kwargs)
+
+    def on_modified(self, event):
+        print('MODIFIED!')
+        self.runner.kill()
+        return 'OK'
+
+def get_observer(handler):
+    from watchdog.observers.polling import PollingObserver as Observer
+
+    observer = Observer()
+    observer.schedule(handler, '.', recursive=True)
+    observer.daemon = True
+    observer.start()
+
 
 def is_type(obj):
     return isinstance(obj, six.class_types)
@@ -111,7 +133,9 @@ def setup_backdoor(runner, port):
 
 
 def run(services, config, backdoor_port=None):
+
     service_runner = ServiceRunner(config)
+
     for service_cls in services:
         service_runner.add_service(service_cls)
 
@@ -125,6 +149,7 @@ def run(services, config, backdoor_port=None):
     if backdoor_port is not None:
         setup_backdoor(service_runner, backdoor_port)
 
+    get_observer(MyHandler(service_runner, services, config, backdoor_port))
     service_runner.start()
 
     # if the signal handler fires while eventlet is waiting on a socket,
@@ -152,18 +177,9 @@ def run(services, config, backdoor_port=None):
                 service_runner.kill()
         else:
             # runner.wait completed
+            print('Pasa por aqui')
+            run(services, config, backdoor_port=backdoor_port)
             break
-
-
-def get_observer():
-    from watchdog.observers.polling import PollingObserver as Observer
-    from watchdog.events import LoggingEventHandler
-
-    observer = Observer()
-    event_handler = LoggingEventHandler()
-    observer.schedule(event_handler, '.', recursive=True)
-    observer.daemon = True
-    observer.start()
 
 
 def main(args):
@@ -183,13 +199,12 @@ def main(args):
     else:
         logging.basicConfig(level=logging.INFO, format='%(message)s')
 
-    get_observer()
-    logging.info('OBSERVER!')
-
     services = []
     for path in args.services:
         services.extend(
             import_service(path)
         )
+
+
 
     run(services, config, backdoor_port=args.backdoor_port)
